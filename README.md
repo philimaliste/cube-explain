@@ -1,4 +1,4 @@
-# atoti Project Template
+# Cube Risk Explain
 
 This template can be used to start atoti projects where the goal is to go into production rather than prototyping in a notebook.
 
