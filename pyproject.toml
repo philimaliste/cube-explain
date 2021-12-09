@@ -10,6 +10,7 @@ atoti = {extras = ["sql"], version = "*"}
 certifi = "*"
 pandas = "*"
 python = "^3.9"
+watchdog = "^2.1.6"
 
 [tool.poetry.dev-dependencies]
 black = "*"

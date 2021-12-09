@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 import pandas as pd
+from pathlib import Path
 
 class DataProcessor:
     def __init__(self) -> None:
@@ -8,7 +9,8 @@ class DataProcessor:
 
     def read_var_file(self, files) -> pd.DataFrame:
         df = pd.DataFrame()
-        for file in files:
+        for fileraw in files:
+            file = Path(fileraw)
             filename = file.stem
             filename_array = filename.split('_')
             calculation_date = datetime.strptime(filename_array[6], '%Y%m%d')
@@ -20,13 +22,15 @@ class DataProcessor:
             df_tmp.loc[df_tmp['Trading Day'] != calculation_date, 'IsNewTrade'] = False
             df_tmp["Calculation Date"] = calculation_date
             df_tmp["Scenario"] = scenario_date
+            df_tmp["Pathfile"] = fileraw
             df = df.append(df_tmp)
         return df
 
 
     def read_explain_file(self, files) -> pd.DataFrame:
         df = pd.DataFrame()
-        for file in files:
+        for fileraw in files:
+            file = Path(fileraw)
             filename = file.stem
             filename_array = filename.split('_')
             calculation_date = datetime.strptime(filename_array[6],'%Y%m%d')
@@ -55,6 +59,7 @@ class DataProcessor:
             df_tmp['Shock Tenor'] = (df_tmp['Underlier Date'] - calculation_date).dt.days - self._get_tenor_shift(calculation_date)
             df_tmp["Calculation Date"] = calculation_date
             df_tmp["Scenario"] = scenario_date
+            df_tmp["Pathfile"] = fileraw
             df = df.append(df_tmp)
         return df
 
