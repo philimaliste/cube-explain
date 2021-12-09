@@ -1,9 +1,10 @@
-from . import start_session
-from .atotiwatcher import AtotiWatcher
 import json
 
+from watchdog.events import FileCreatedEvent, FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver
-from watchdog.events import FileSystemEventHandler, FileCreatedEvent
+
+from . import start_session
+from .atotiwatcher import AtotiWatcher
 
 f = open("./cube_properties.json")
 cube_config = json.load(f)

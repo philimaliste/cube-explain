@@ -1,10 +1,11 @@
+import glob
+import json
 import os
 import re
-from typing import Mapping
-import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
-import glob
+from typing import Mapping
+
 import atoti as tt
 import pandas as pd
 
@@ -49,22 +50,20 @@ def start_session() -> tt.Session:
     f = open("./cube_properties.json")
     cube_config = json.load(f)
     input_path = cube_config["path_input"]
-    var_files = glob.glob(f"{input_path}*EDEN.csv")
-    explain_files = glob.glob(f"{input_path}*ScenarioDate*.csv")
-    var_df = dataprocessor.read_var_file(var_files)
-    explain_df = dataprocessor.read_explain_file(explain_files)
-    #define Var table
+    files = glob.glob(f"{input_path}V@R*.csv")
+    print(files)
+    var_df, explain_df = dataprocessor.read_files(files)
+    # var_files = glob.glob(f"{input_path}*EDEN.csv")
+    # explain_files = glob.glob(f"{input_path}*ScenarioDate*.csv")
+    # var_df = dataprocessor.read_var_file(var_files)
+    # explain_df = dataprocessor.read_explain_file(explain_files)
+    # define Var table
     var_table = session.read_pandas(
         var_df,
         table_name="Var",
-        keys=[
-            "Calculation Date",
-            "Scenario",
-            "Book",
-            "Trade Id"
-        ]
+        keys=["Calculation Date", "Scenario", "Book", "Trade Id"],
     )
-    #define Explain table
+    # define Explain table
     explain_table = session.read_pandas(
         explain_df,
         table_name="Explain",
@@ -79,8 +78,8 @@ def start_session() -> tt.Session:
             "Curve Delivery Profile",
             "Underlier Tenor",
             "Shock Tenor",
-            "Vol Strike"
-        ]
+            "Vol Strike",
+        ],
     )
     scenario_table = ["Delta", "Vega", "Gamma"]
 
@@ -90,8 +89,13 @@ def start_session() -> tt.Session:
         "Sensi Type", scenario_table, index_measure_name="Scenario.INDEX"
     )
     var_table.join(explain_table)
-    #Measures
-    m["Var.SUM"] = tt.agg.sum(tt.agg.sum(var_table["Var"]), scope=tt.scope.origin(l["Calculation Date"], l["Scenario"], l["Book"], l["Trade Id"]))
+    # Measures
+    m["Var.SUM"] = tt.agg.sum(
+        tt.agg.sum(var_table["Var"]),
+        scope=tt.scope.origin(
+            l["Calculation Date"], l["Scenario"], l["Book"], l["Trade Id"]
+        ),
+    )
     explain = tt.agg.sum(explain_table["Explain"])
     explain_vector = explain[m["Scenario.INDEX"]]
     explain_alone = tt.array.sum(explain)
@@ -102,13 +106,15 @@ def start_session() -> tt.Session:
     m["Sensi.SUM"] = tt.where(sensi_vector == None, sensi_alone, sensi_vector)
     m["QuoteCentered.MEAN"] = tt.agg.mean(explain_table["Underlier Quote1"])
     m["QuoteShocked.MEAN"] = tt.agg.mean(explain_table["Underlier Today Quote1"])
-    m["Shock.MEAN"] = m["QuoteShocked.MEAN"] - m["QuoteCentered.MEAN"]
-    m["ShockRaw.MEAN"] = (m["QuoteShocked.MEAN"] - m["QuoteCentered.MEAN"]) / m["QuoteCentered.MEAN"]
+    m["ShockRelative.MEAN"] = m["QuoteShocked.MEAN"] - m["QuoteCentered.MEAN"]
+    m["ShockPercentage.MEAN"] = (m["QuoteShocked.MEAN"] - m["QuoteCentered.MEAN"]) / m[
+        "QuoteCentered.MEAN"
+    ]
     m["Unexplain.SUM"] = m["Var.SUM"] - m["Explain.SUM"]
-    #Polish
+    # Polish
     h["Calculation Date"].slicing = True
     h["Scenario"].slicing = True
-    m["ShockRaw.MEAN"].formatter = "DOUBLE[0.00%]"
+    m["ShockPercentage.MEAN"].formatter = "DOUBLE[0.00%]"
     m["Scenario.INDEX"].visible = False
 
     return session
