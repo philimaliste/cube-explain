@@ -1,8 +1,11 @@
 [tool.poetry]
-name = "app"
+name = "cubexplain"
 version = "0.1.0"
 description = ""
 authors = []
+
+[tool.poetry.scripts]
+cubexplain = "cubexplain.commande_line:main"
 
 [tool.poetry.dependencies]
 atoti = {extras = ["sql"], version = "*"}

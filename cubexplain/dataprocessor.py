@@ -45,9 +45,7 @@ class DataProcessor:
         calculation_date = datetime.strptime(filename_array[2], "%Y%m%d")
 
         df = pd.read_csv(file, parse_dates=["Underlier Date"])
-        df["Perturbation Type"] = df["Perturbation Type"].str.replace(
-            "Quote", "Fx"
-        )
+        df["Perturbation Type"] = df["Perturbation Type"].str.replace("Quote", "Fx")
         df["Explain"] = df.apply(
             lambda row: [row["Delta Pl"], row["Vega Pl"], row["Gamma Pl"]], axis=1
         )
