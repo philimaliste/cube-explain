@@ -13,7 +13,6 @@ class AtotiWatcher(FileSystemEventHandler):
         try:
             dataprocessor = DataProcessor()
             src_path = event.src_path
-            print(src_path[-10:])
             if "ScenarioDate" in src_path:
                 explain_df = dataprocessor.read_explain_file(src_path)
                 self.session.tables["Explain"].load_pandas(explain_df)

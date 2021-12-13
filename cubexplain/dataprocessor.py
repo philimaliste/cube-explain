@@ -17,7 +17,7 @@ class DataProcessor:
                     self.read_explain_file(file), ignore_index=True
                 )
             else:
-                var_df = var_df.append(self.read_var_file(file), ignore_index=True)
+                var_df = var_df.append(self.read_var_file(file), ignore_index=True )
         return var_df, explain_df
 
     def read_var_file(self, file) -> pd.DataFrame:
@@ -25,7 +25,8 @@ class DataProcessor:
         filename = filepath.stem
         filename_array = filename.split("_")
         calculation_date = datetime.strptime(filename_array[2], "%Y%m%d")
-        df = pd.read_csv(file, parse_dates=["Trading Day"])
+        risk_type = filename_array[0]
+        df = pd.read_csv(file, parse_dates=["Trading Day"], low_memory=False)
         scenario_date = datetime.strptime(df.columns[-1], "%m/%d/%Y")
         df = df.iloc[:, :-1]
         df = df.drop(
@@ -36,6 +37,7 @@ class DataProcessor:
         df["Calculation Date"] = calculation_date
         df["Scenario"] = scenario_date
         df["Pathfile"] = file
+        df["Risk Type"] = risk_type
         return df
 
     def read_explain_file(self, file) -> pd.DataFrame:
@@ -43,10 +45,10 @@ class DataProcessor:
         filename = filepath.stem
         filename_array = filename.split("_")
         calculation_date = datetime.strptime(filename_array[2], "%Y%m%d")
-
-        df = pd.read_csv(file, parse_dates=["Underlier Date"])
+        risk_type = filename_array[0]
+        df = pd.read_csv(file, parse_dates=["Underlier Date"], dtype={"Volatility Sub Type":str,"Vol Strike":str}, low_memory=False)
         df["Perturbation Type"] = df["Perturbation Type"].str.replace("Quote", "Fx")
-        df["Explain"] = df.apply(
+        """df["Explain"] = df.apply(
             lambda row: [row["Delta Pl"], row["Vega Pl"], row["Gamma Pl"]], axis=1
         )
         df["Sensitivities"] = df.apply(
@@ -56,7 +58,10 @@ class DataProcessor:
                 row["Gamma"] + row["Today Gamma"],
             ],
             axis=1,
-        )
+        )"""
+        df["Explain"] = df["Delta Pl"] + df["Vega Pl"] + df["Gamma Pl"]
+        df["Sensitivities"] = df["Delta"] + df["Vega"] + df["Gamma"] + df["Today Delta"] + df["Today Vega"] + df["Today Gamma"]
+        df = df.drop(["Pl", "Delta Pl", "Vega Pl", "Gamma Pl", "Delta", "Vega","Gamma", "Today Delta", "Today Vega", "Today Gamma"], axis=1)
         scenario_date = datetime.strptime(filename_array[4], "%Y%m%d")
         df = df.rename(
             columns={
@@ -78,6 +83,7 @@ class DataProcessor:
         df["Calculation Date"] = calculation_date
         df["Scenario"] = scenario_date
         df["Pathfile"] = file
+        df["Risk Type"] = risk_type
         return df
 
     def _get_tenor_shift(self, date) -> int:
