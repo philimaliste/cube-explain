@@ -159,9 +159,6 @@ def start_session(input_path) -> tt.Session:
 
     cube = session.create_cube(var_table, mode="no_measures", name="cubexplain")
     m, l, h = cube.measures, cube.levels, cube.hierarchies
-    cube.create_parameter_hierarchy_from_members(
-        "Sensi Type", scenario_table, index_measure_name="Scenario.INDEX"
-    )
     var_table.join(explain_table)
     # Measures
     m["Var.SUM"] = tt.agg.sum(
@@ -183,7 +180,6 @@ def start_session(input_path) -> tt.Session:
     h["Calculation Date"].slicing = True
     h["Scenario"].slicing = True
     m["ShockPercentage.MEAN"].formatter = "DOUBLE[0.00%]"
-    m["Scenario.INDEX"].visible = False
 
     @session.endpoint("tables/{table_name}/size", method="GET")
     def get_table_size(request, user, session):
