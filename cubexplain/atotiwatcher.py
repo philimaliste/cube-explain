@@ -11,25 +11,31 @@ class AtotiWatcher(FileSystemEventHandler):
 
     def on_created(self, event: FileCreatedEvent):
         try:
+            print("Loading ", event.src_path)
             dataprocessor = DataProcessor()
             src_path = event.src_path
             if "ScenarioDate" in src_path:
-                explain_df = dataprocessor.read_explain_file(src_path)
-                self.session.tables["Explain"].load_pandas(explain_df)
+                df = dataprocessor.read_explain_file(src_path)
+                tablename = "Explain"
             else:
-                var_df = dataprocessor.read_var_file(src_path)
-                self.session.tables["Var"].load_pandas(var_df)
+                df = dataprocessor.read_var_file(src_path)
+                tablename = "Var"
+            with self.session.start_transaction():
+                self.session.tables[tablename].load_pandas(df)
         except Exception as error:
             print(error)
 
     def on_deleted(self, event: FileCreatedEvent):
         try:
+            print("Unloading ", event.src_path)
             dataprocessor = DataProcessor()
             src_path = event.src_path
             print("file deleted", src_path)
             if "ScenarioDate" in src_path:
-                self.session.tables["Explain"].drop({"Pathfile": src_path})
+                tablename = "Explain"
             else:
-                self.session.tables["Var"].drop({"Pathfile": src_path})
+                tablename = "Var"
+            with self.session.start_transaction():
+                self.session.tables[tablename].drop({"Pathfile": src_path})
         except Exception as error:
             print(error)

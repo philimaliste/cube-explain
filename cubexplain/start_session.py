@@ -34,7 +34,7 @@ POSTGRES_DATABASE_URL_PATTERN = (
     }"""
 
 
-def start_session() -> tt.Session:
+def start_session(input_path) -> tt.Session:
     session = tt.create_session(
         config={
             **{
@@ -45,21 +45,50 @@ def start_session() -> tt.Session:
             "user_content_storage": "./content",
         }
     )
-    input_path = "./"
-    dataprocessor = DataProcessor()
-    files = glob.glob(f"{input_path}V@R*.csv")
-    print(files)
-    var_df, explain_df = dataprocessor.read_files(files)
-    # define Var table
-    var_table = session.read_pandas(
-        var_df,
-        table_name="Var",
-        keys=["Calculation Date", "Scenario", "Book", "Trade Id","Risk Type"],
+
+    print("log path", session.logs_path)
+
+    var_table = session.create_table(
+        "Var",
+        keys=["Calculation Date", "Scenario", "Book", "Trade Id", "Risk Type"],
+        types={
+            "Entity": tt.type.STRING,
+            "Trade Id": tt.type.INT,
+            "Underlier Info": tt.type.STRING,
+            "Version": tt.type.INT,
+            "Book": tt.type.STRING,
+            "Party": tt.type.NULLABLE_STRING,
+            "Client Type": tt.type.NULLABLE_STRING,
+            "Trader": tt.type.NULLABLE_STRING,
+            "Product Type": tt.type.STRING,
+            "Description": tt.type.NULLABLE_STRING,
+            "Status": tt.type.NULLABLE_STRING,
+            "Current Notional": tt.type.FLOAT,
+            "Currency": tt.type.NULLABLE_STRING,
+            "Parent Entity": tt.type.NULLABLE_STRING,
+            "Is Updated Today": tt.type.BOOLEAN,
+            "Is Today Trade": tt.type.BOOLEAN,
+            "Has Error": tt.type.BOOLEAN,
+            "Initial Party": tt.type.NULLABLE_STRING,
+            "Csa Desc": tt.type.NULLABLE_STRING,
+            "Ccp": tt.type.NULLABLE_STRING,
+            "Trading Day": tt.type.NULLABLE_LOCAL_DATE,
+            "Input Date": tt.type.NULLABLE_STRING,
+            "Update Date": tt.type.NULLABLE_STRING,
+            "Maturity Date": tt.type.NULLABLE_STRING,
+            "Risk Maturity": tt.type.NULLABLE_STRING,
+            "Var": tt.type.FLOAT,
+            "Pv": tt.type.FLOAT,
+            "IsNewTrade": tt.type.BOOLEAN,
+            "Calculation Date": tt.type.LOCAL_DATE,
+            "Scenario": tt.type.LOCAL_DATE,
+            "Pathfile": tt.type.STRING,
+            "Risk Type": tt.type.STRING,
+        },
     )
-    # define Explain table
-    explain_table = session.read_pandas(
-        explain_df,
-        table_name="Explain",
+
+    explain_table = session.create_table(
+        "Explain",
         keys=[
             "Calculation Date",
             "Scenario",
@@ -74,8 +103,59 @@ def start_session() -> tt.Session:
             "Shock Tenor",
             "Vol Strike",
         ],
+        types={
+            "Division Id": tt.type.NULLABLE_STRING,
+            "Desk Id": tt.type.NULLABLE_STRING,
+            "Book": tt.type.STRING,
+            "Trade Id": tt.type.INT,
+            "Commodity Family": tt.type.NULLABLE_STRING,
+            "Commodity Unit Family": tt.type.NULLABLE_STRING,
+            "Commodity Long Name": tt.type.NULLABLE_STRING,
+            "Commodity Type": tt.type.NULLABLE_STRING,
+            "Commodity Reference": tt.type.NULLABLE_STRING,
+            "Commodity Lots Size": tt.type.FLOAT,
+            "Risk Unit": tt.type.NULLABLE_STRING,
+            "Product Type": tt.type.STRING,
+            "Instrument Underlier Info": tt.type.STRING,
+            "Perturbation Type": tt.type.STRING,
+            "Delivery Month": tt.type.NULLABLE_STRING,
+            "Delivery Year": tt.type.INT,
+            "Delivery Season": tt.type.NULLABLE_STRING,
+            "Delivery Quarter": tt.type.NULLABLE_STRING,
+            "Volatility Sub Type": tt.type.NULLABLE_STRING,
+            "Vol Strike": tt.type.STRING,
+            "Underlier Date": tt.type.NULLABLE_LOCAL_DATE,
+            "Curve Delivery Profile": tt.type.STRING,
+            "Underlier Tenor": tt.type.STRING,
+            "Underlier Quote1": tt.type.FLOAT,
+            "Underlier Today Quote1": tt.type.FLOAT,
+            "Is Today Greeks": tt.type.NULLABLE_BOOLEAN,
+            "Explain": tt.type.NULLABLE_FLOAT,
+            "Sensitivities": tt.type.NULLABLE_FLOAT,
+            "Shock Tenor": tt.type.INT,
+            "Calculation Date": tt.type.LOCAL_DATE,
+            "Scenario": tt.type.LOCAL_DATE,
+            "Pathfile": tt.type.STRING,
+            "Risk Type": tt.type.STRING,
+        },
     )
-    scenario_table = ["Delta", "Vega", "Gamma"]
+    dataprocessor = DataProcessor()
+    files = glob.glob(f"{input_path}V@R*.csv")
+    print("files ", files)
+
+    with session.start_transaction():
+        for file in files:
+            print("Loading ", file)
+            if "ScenarioDate" in file:
+                print("df explain")
+                df = dataprocessor.read_explain_file(file)
+                print("table explain", len(df))
+                explain_table.load_pandas(df)
+            else:
+                print("df")
+                df = dataprocessor.read_var_file(file)
+                print("table")
+                var_table.load_pandas(df)
 
     cube = session.create_cube(var_table, mode="no_measures", name="cubexplain")
     m, l, h = cube.measures, cube.levels, cube.hierarchies
@@ -90,14 +170,6 @@ def start_session() -> tt.Session:
             l["Calculation Date"], l["Scenario"], l["Book"], l["Trade Id"]
         ),
     )
-    """explain = tt.agg.sum(explain_table["Explain"])
-    explain_vector = explain[m["Scenario.INDEX"]]
-    explain_alone = tt.array.sum(explain)
-    m["Explain.SUM"] = tt.where(explain_vector == None, explain_alone, explain_vector)
-    sensi_array = tt.agg.sum(explain_table["Sensitivities"])
-    sensi_vector = sensi_array[m["Scenario.INDEX"]]
-    sensi_alone = tt.array.sum(sensi_array)
-    m["Sensi.SUM"] = tt.where(sensi_vector == None, sensi_alone, sensi_vector)"""
     m["Explain.SUM"] = tt.agg.sum(explain_table["Explain"])
     m["Sensi.SUM"] = tt.agg.sum(explain_table["Sensitivities"])
     m["QuoteCentered.MEAN"] = tt.agg.mean(explain_table["Underlier Quote1"])
@@ -115,18 +187,14 @@ def start_session() -> tt.Session:
 
     @session.endpoint("tables/{table_name}/size", method="GET")
     def get_table_size(request, user, session):
-        mdx = ("SELECT NON EMPTY Crossjoin([Var].[Calculation Date].[Calculation Date].CURRENTMEMBER, {[Measures].[Explain.SUM]}) ON COLUMNS, NON EMPTY Hierarchize(Descendants({[Var].[Book].[AllMember]}, 1, SELF_AND_BEFORE)) ON ROWS FROM [cubexplain] CELL PROPERTIES VALUE, FORMATTED_VALUE, BACK_COLOR, FORE_COLOR, FONT_FLAGS")
+        mdx = "SELECT NON EMPTY Crossjoin([Var].[Calculation Date].[Calculation Date].CURRENTMEMBER, {[Measures].[Explain.SUM]}) ON COLUMNS, NON EMPTY Hierarchize(Descendants({[Var].[Book].[AllMember]}, 1, SELF_AND_BEFORE)) ON ROWS FROM [cubexplain] CELL PROPERTIES VALUE, FORMATTED_VALUE, BACK_COLOR, FORE_COLOR, FONT_FLAGS"
         cube = session.cubes["cubexplain"]
         m = cube.measures
         l = cube.levels
         return session.query_mdx(mdx).to_json()
-        #return cube.query(m["Explain.SUM"], levels=[l["Book"]], mode="raw" ).to_json()
 
     @session.endpoint("explain/book", method="POST")
     def mdx(request, user, session):
-        #cube = session.cubes["cubexplain"]
-        #m, l, h = cube.measures, cube.levels, cubes.hierarchies
-        #levels = request.body["levels"]
         return session.cubes["cubexplain"].query(m["Explain.SUM"]).to_json()
 
     return session
