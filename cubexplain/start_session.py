@@ -38,7 +38,7 @@ def start_session(input_path) -> tt.Session:
     session = tt.create_session(
         config={
             **{
-                "java_options": ["-Xmx250m"],
+                #"java_options": ["-Xmx250m"],
                 # The $PORT environment variable is used by most PaaS to indicate the port the application server should bind to.
                 "port": int(os.environ.get("PORT") or 9090),
             },
@@ -147,14 +147,10 @@ def start_session(input_path) -> tt.Session:
         for file in files:
             print("Loading ", file)
             if "ScenarioDate" in file:
-                print("df explain")
                 df = dataprocessor.read_explain_file(file)
-                print("table explain", len(df))
                 explain_table.load_pandas(df)
             else:
-                print("df")
                 df = dataprocessor.read_var_file(file)
-                print("table")
                 var_table.load_pandas(df)
 
     cube = session.create_cube(var_table, mode="no_measures", name="cubexplain")
